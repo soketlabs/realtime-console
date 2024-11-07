@@ -9,7 +9,7 @@
  * You can run it with `npm run relay`, in parallel with `npm start`
  */
 const LOCAL_RELAY_SERVER_URL: string =
-  process.env.REACT_APP_LOCAL_RELAY_SERVER_URL || '';
+  process.env.REACT_APP_LOCAL_RELAY_SERVER_URL || 'wss://api.soket.ai/s2s';
 
 import { useEffect, useRef, useCallback, useState } from 'react';
 
@@ -75,10 +75,10 @@ export function ConsolePage() {
    * - RealtimeClient (API client)
    */
   const wavRecorderRef = useRef<WavRecorder>(
-    new WavRecorder({ sampleRate: 24000 })
+    new WavRecorder({ sampleRate: 16000 })
   );
   const wavStreamPlayerRef = useRef<WavStreamPlayer>(
-    new WavStreamPlayer({ sampleRate: 24000 })
+    new WavStreamPlayer({ sampleRate: 22050 })
   );
   const clientRef = useRef<RealtimeClient>(
     new RealtimeClient(
@@ -184,7 +184,7 @@ export function ConsolePage() {
     client.sendUserMessageContent([
       {
         type: `input_text`,
-        text: `Hello!`,
+        text: `Hello`,
         // text: `For testing purposes, I want you to list ten car brands. Number each item, e.g. "one (or whatever number you are one): the item name".`
       },
     ]);
@@ -484,8 +484,8 @@ export function ConsolePage() {
       if (item.status === 'completed' && item.formatted.audio?.length) {
         const wavFile = await WavRecorder.decode(
           item.formatted.audio,
-          24000,
-          24000
+          22050,
+          22050
         );
         item.formatted.file = wavFile;
       }
