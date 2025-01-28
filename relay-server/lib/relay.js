@@ -19,7 +19,7 @@ export class RealtimeRelay {
       this.log('No URL provided, closing connection.');
       ws.close();
       return;
-    }
+    } 
 
     const url = new URL(req.url, `http://${req.headers.host}`);
     const pathname = url.pathname;
@@ -32,7 +32,7 @@ export class RealtimeRelay {
 
     // Instantiate new client
     this.log(`Connecting with key "${this.apiKey.slice(0, 3)}..."`);
-    const client = new RealtimeClient({ apiKey: this.apiKey });
+    const client = new RealtimeClient({ url: "wss://api.soket.ai/dev/s2s", apiKey: this.apiKey });
 
     // Relay: OpenAI Realtime API Event -> Browser Event
     client.realtime.on('server.*', (event) => {

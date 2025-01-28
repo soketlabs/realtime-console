@@ -9,7 +9,7 @@
  * You can run it with `npm run relay`, in parallel with `npm start`
  */
 const LOCAL_RELAY_SERVER_URL: string =
-  process.env.REACT_APP_LOCAL_RELAY_SERVER_URL || 'wss://api.soket.ai/s2s';
+  process.env.REACT_APP_LOCAL_RELAY_SERVER_URL || '';
 
 import { useEffect, useRef, useCallback, useState } from 'react';
 
@@ -54,7 +54,41 @@ interface RealtimeEvent {
   event: { [key: string]: any };
 }
 
+const frameRate = 8000;
+
+const digitToHindi: { [key: string]: string } = {
+  "0": "शून्य", // zero
+  "1": "एक", // ek
+  "2": "दो", // do
+  "3": "तीन", // teen
+  "4": "चार", // chaar
+  "5": "पाँच", // paanch
+  "6": "छे", // chhe
+  "7": "सात", // saat
+  "8": "आठ", // aath
+  "9": "नौ", // nau
+};
+
+function digitToHindiSentence(number: number) {
+
+  // Convert the number to a string and split into digits
+  const digits = String(number).split("");
+
+  // Map each digit to its Hindi word
+  const hindiWords = digits.map(digit => digitToHindi[parseInt(digit, 10)] || "");
+
+  // Join the words with spaces
+  return hindiWords.join(" ");
+}
+
 export function ConsolePage() {
+
+
+  const startTimerRef = useRef<Date>(new Date());
+  const timeDiff = useRef<number>(0);
+  const readings = useRef<number>(0);
+
+
   /**
    * Ask user for API Key
    * If we're using the local relay server, we don't need this
@@ -75,10 +109,10 @@ export function ConsolePage() {
    * - RealtimeClient (API client)
    */
   const wavRecorderRef = useRef<WavRecorder>(
-    new WavRecorder({ sampleRate: 16000 })
+    new WavRecorder({ sampleRate: frameRate })
   );
   const wavStreamPlayerRef = useRef<WavStreamPlayer>(
-    new WavStreamPlayer({ sampleRate: 22050 })
+    new WavStreamPlayer({ sampleRate: frameRate })
   );
   const clientRef = useRef<RealtimeClient>(
     new RealtimeClient(
@@ -244,6 +278,7 @@ export function ConsolePage() {
    * In push-to-talk mode, stop recording
    */
   const stopRecording = async () => {
+    startTimerRef.current = new Date();
     setIsRecording(false);
     const client = clientRef.current;
     const wavRecorder = wavRecorderRef.current;
@@ -377,83 +412,143 @@ export function ConsolePage() {
     const client = clientRef.current;
 
     // Set instructions
-    client.updateSession({ instructions: instructions });
+    client.updateSession({ instructions: instructions, voice: 'diya', language: 'hi' });
     // Set transcription, otherwise we don't get user transcriptions back
     client.updateSession({ input_audio_transcription: { model: 'whisper-1' } });
 
-    // Add tools
     client.addTool(
       {
-        name: 'set_memory',
-        description: 'Saves important data about the user into memory.',
+        name: 'no_orders',
+        description: 'Trigger this tool if the customer is not getting any orders on the app.',
         parameters: {
           type: 'object',
           properties: {
-            key: {
+            problem: {
               type: 'string',
               description:
-                'The key of the memory value. Always use lowercase and underscores, no other characters.',
-            },
-            value: {
-              type: 'string',
-              description: 'Value can be anything represented as a string',
-            },
+                'Problem description',
+            }
           },
-          required: ['key', 'value'],
+          required: ['problem'],
         },
       },
-      async ({ key, value }: { [key: string]: any }) => {
-        setMemoryKv((memoryKv) => {
-          const newKv = { ...memoryKv };
-          newKv[key] = value;
-          return newKv;
-        });
-        return { ok: true };
+      async ({ problem }: { [reason: string]: any }) => {
+        // setMemoryKv((memoryKv) => {
+        //   const newKv = { ...memoryKv };
+        //   newKv['reason'] = reason;
+        //   newKv['summary'] = summary;
+        //   return newKv;
+        // });
+        console.log(problem)
+        return 'Everything is alright with your account. Try moving to a nearby demand area for better chances of getting orders.';
       }
     );
-    client.addTool(
-      {
-        name: 'get_weather',
-        description:
-          'Retrieves the weather for a given lat, lng coordinate pair. Specify a label for the location.',
-        parameters: {
-          type: 'object',
-          properties: {
-            lat: {
-              type: 'number',
-              description: 'Latitude',
-            },
-            lng: {
-              type: 'number',
-              description: 'Longitude',
-            },
-            location: {
-              type: 'string',
-              description: 'Name of the location',
-            },
-          },
-          required: ['lat', 'lng', 'location'],
-        },
-      },
-      async ({ lat, lng, location }: { [key: string]: any }) => {
-        setMarker({ lat, lng, location });
-        setCoords({ lat, lng, location });
-        const result = await fetch(
-          `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=temperature_2m,wind_speed_10m`
-        );
-        const json = await result.json();
-        const temperature = {
-          value: json.current.temperature_2m as number,
-          units: json.current_units.temperature_2m as string,
-        };
-        const wind_speed = {
-          value: json.current.wind_speed_10m as number,
-          units: json.current_units.wind_speed_10m as string,
-        };
-        setMarker({ lat, lng, location, temperature, wind_speed });
-        return json;
-      }
-    );
+
+    // Add tools
+    // client.addTool(
+    //   {
+    //     name: 'call_end',
+    //     description: 'End the call at the end of the conversation',
+    //     parameters: {
+    //       type: 'object',
+    //       properties: {
+    //         reason: {
+    //           type: 'string',
+    //           description:
+    //             'The reason to end the call',
+    //         },
+    //         summary: {
+    //           type: 'string',
+    //           description: 'A detailed summary of the conversation in 200 words in point by point manner.',
+    //         },
+    //       },
+    //       required: ['reason', 'summary'],
+    //     },
+    //   },
+    //   async ({ reason, summary }: { [reason: string]: any }) => {
+    //     setMemoryKv((memoryKv) => {
+    //       const newKv = { ...memoryKv };
+    //       newKv['reason'] = reason;
+    //       newKv['summary'] = summary;
+    //       return newKv;
+    //     });
+    //     return { ok: true };
+    //   }
+    // );
+
+    // client.addTool(
+    //   {
+    //     name: 'register_complaint',
+    //     description: 'Register a complaint whenever needed',
+    //     parameters: {
+    //       type: 'object',
+    //       properties: {
+    //         reason: {
+    //           type: 'string',
+    //           description:
+    //             'The reason for the complaint',
+    //         },
+    //         issue_tag: {
+    //           type: 'string',
+    //           description: 'The tag for the issue',
+    //           enum: ['router_issue', 'internet_issue', 'network_slow', 'bill_not_paid', 'network_down', 'plan_change_in_progress'],
+    //         },
+    //       },
+    //       required: ['reason', 'issue_tag'],
+    //     },
+    //   },
+    //   async ({ reason, issue_tag }: { [reason: string]: any }) => {
+    //     console.log("register_complaint Tool call triggered")
+    //     console.log(reason, issue_tag)
+        
+    //     let random = Math.floor(Math.random() * (500 - 45 + 1)) + 45
+    //     console.log("Number: ", random)
+    //     return { complaint_number: digitToHindiSentence(random) };
+    //   }
+    // );
+    // client.addTool(
+    //   {
+    //     name: 'get_weather',
+    //     description:
+    //       'Retrieves the weather for a given lat, lng coordinate pair. Specify a label for the location.',
+    //     parameters: {
+    //       type: 'object',
+    //       properties: {
+    //         lat: {
+    //           type: 'number',
+    //           description: 'Latitude',
+    //         },
+    //         lng: {
+    //           type: 'number',
+    //           description: 'Longitude',
+    //         },
+    //         location: {
+    //           type: 'string',
+    //           description: 'Name of the location',
+    //         },
+    //       },
+    //       required: ['lat', 'lng', 'location'],
+    //     },
+    //   },
+    //   async ({ lat, lng, location }: { [key: string]: any }) => {
+    //     setMarker({ lat, lng, location });
+    //     setCoords({ lat, lng, location });
+    //     const result = await fetch(
+    //       `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=temperature_2m,wind_speed_10m`
+    //     );
+    //     const json = await result.json();
+    //     const temperature = {
+    //       value: json.current.temperature_2m as number,
+    //       units: json.current_units.temperature_2m as string,
+    //     };
+    //     const wind_speed = {
+    //       value: json.current.wind_speed_10m as number,
+    //       units: json.current_units.wind_speed_10m as string,
+    //     };
+    //     setMarker({ lat, lng, location, temperature, wind_speed });
+    //     return json;
+    //   }
+    // );
 
     // handle realtime events from client + server for event logging
     client.on('realtime.event', (realtimeEvent: RealtimeEvent) => {
@@ -479,13 +574,19 @@ export function ConsolePage() {
     client.on('conversation.updated', async ({ item, delta }: any) => {
       const items = client.conversation.getItems();
       if (delta?.audio) {
+        const endTime = new Date(); // Record the end time
+        let diffInMs = endTime.getTime() - startTimerRef.current.getTime();
+        // console.log(item)
+        timeDiff.current += diffInMs
+        readings.current += 1
+        console.log("Avg Time: " + timeDiff.current / readings.current + "ms")
         wavStreamPlayer.add16BitPCM(delta.audio, item.id);
       }
       if (item.status === 'completed' && item.formatted.audio?.length) {
         const wavFile = await WavRecorder.decode(
           item.formatted.audio,
-          22050,
-          22050
+          frameRate,
+          frameRate
         );
         item.formatted.file = wavFile;
       }
